@@ -4,24 +4,24 @@ import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/users.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
-
-const generateAccessandRefereshTokens = async(userId) => {
-  try{
+const generateAccessAndRefereshTokens = async (userId) => {
+  try {
     const user = await User.findById(userId);
-    const accessToken = user.generateAccessToken()
-    const generateToken = user.generateRefreshToken()
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
 
-    user.refreshToken = refreshToken
-    await user.save({validateBeforeSave: false})
+    user.refreshToken = refreshToken;
 
-    return {accessToken,refreshToken}
-
+    await user.save({ validateBeforeSave: false });
+  
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new ApiError(
+      500,
+      "Something went wrong while generating referesh and access token"
+    );
   }
-  catch(error) {
-    throw new ApiError(500,"Something Went Wrong while generating referesh and Acsess Token");
-  }
-}
-
+};
 
 const registerUser = asyncHandler(async (req, res) => {
   // res.status(200).json({
@@ -116,68 +116,75 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const { email, username, password } = req.body;
 
-  if(!(username && email)){
-    throw new ApiError(400,"Username or Email Required")
+  if (!username && !email) {
+    throw new ApiError(400, "Username or Email Required");
   }
 
   const user = await User.findOne({
-    $or : [{username},{email}]
-  })
+    $or: [{ username }, { email }],
+  });
 
-  if(!user){
-    throw new ApiError(404,"User does not exist");
+  if (!user) {
+    throw new ApiError(404, "User does not exist");
   }
 
   const isPasswordValid = await user.isPasswordCorrect(password);
 
-  if(!isPasswordValid){
-    throw new ApiError(401,"Invalid User Credentials");
+  if (!isPasswordValid) {
+    throw new ApiError(401, "Invalid User Credentials");
   }
 
-  const {accessToken,refreshToken} = await generateAccessandRefereshTokens(user._id)
+  const {accessToken, refreshToken} = await generateAccessAndRefereshTokens(user._id)
 
-  const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
 
   const options = {
     httpOnly: true,
-    secure: true
-  }
+    secure: true,
+  };
 
   return res
-  .status(200)
-  .cookie("accessToken", accessToken,options)
-  .cookie("refreshToken",refreshToken,options)
-  .json(
-    new ApiResponse(200,{
-      user: loggedInUser , accessToken , refreshToken
-    },"User Logged In Successfully"
-  )
-  )
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        {
+          user: loggedInUser,
+          accessToken,
+          refreshToken,
+        },
+        "User Logged In Successfully"
+      )
+    );
 });
 
-const logoutUser = asyncHandler(async(req,res) => {
-   await User.findByIdAndUpdate(
-      req.user._id,
-      {
-        $set:{
-          refreshToken: undefined
-        }
+const logoutUser = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        refreshToken: undefined,
       },
-      {
-        new : true
-      }
-    )
-
-    const options = {
-      httpOnly: true,
-      secure: true
+    },
+    {
+      new: true,
     }
+  );
 
-    return res
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  return res
     .status(200)
-    .clearCookie("accessToken",options)
-    .clearCookie("refreshToken",options)
-    .json(new ApiResponse(200,{},"User Logged Out"))
-})
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User Logged Out"));
+});
 
-export { registerUser, loginUser,logoutUser };
+export { registerUser, loginUser, logoutUser };
