@@ -264,7 +264,7 @@ const updateAccountDetails = asyncHandler(async(req,res) => {
     throw new ApiError(400,"All Fields are required")
   }
 
-  const user = User.findByIdAndUpdate(
+  const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
       $set : {
@@ -309,7 +309,6 @@ const updateUserAvatar = asyncHandler(async(req,res) => {
   .status(200)
   .ApiResponse(200,user,"Avatar Updated Successfully")
 })
-
 
 const updateUserCoverImage = asyncHandler(async(req,res) => {
   const coverImageLocalPath = req.file?.path
